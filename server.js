@@ -17,6 +17,10 @@ app.use(bodyParser.json());
 const shop = process.env.SHOPIFY_SHOP;
 const accessToken = process.env.SHOPIFY_ADMIN_API_KEY;
 
+console.log("🧪 Shopify shop:", process.env.SHOPIFY_SHOP);
+console.log("🔑 Token prefix:", process.env.SHOPIFY_ADMIN_API_KEY?.substring(0, 10));
+
+
 // Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
@@ -53,7 +57,7 @@ app.post('/create-custom-variant', async (req, res) => {
         }
       }
     `;
-    
+
 
     const variantResponse = await axios.post(
       `https://${shop}/admin/api/2023-10/graphql.json`,
