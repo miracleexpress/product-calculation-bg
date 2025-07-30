@@ -17,8 +17,8 @@ app.use(bodyParser.json());
 const shop = process.env.SHOPIFY_SHOP;
 const accessToken = process.env.SHOPIFY_ADMIN_API_KEY;
 
-console.log("🧪 Shopify shop:", process.env.SHOPIFY_SHOP);
-console.log("🔑 Token prefix:", process.env.SHOPIFY_ADMIN_API_KEY?.substring(0, 10));
+console.log("🧪 Shopify shop:", shop);
+console.log("🔑 Token prefix:", accessToken?.substring(0, 10));
 
 // Health Check
 app.get('/health', (req, res) => {
@@ -63,7 +63,12 @@ app.post('/create-custom-variant', async (req, res) => {
     const variantResponse = await axios.post(
       `https://${shop}/admin/api/2024-07/graphql.json`,
       { query: variantMutation },
-      { headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' } }
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
     );
 
     const variantData = variantResponse.data?.data?.productVariantCreate;
@@ -95,7 +100,12 @@ app.post('/create-custom-variant', async (req, res) => {
     const mfResponse = await axios.post(
       `https://${shop}/admin/api/2024-07/graphql.json`,
       { query: metafieldMutation },
-      { headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' } }
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
     );
 
     const mfData = mfResponse.data?.data?.metafieldsSet;
