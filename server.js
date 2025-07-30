@@ -92,7 +92,7 @@ app.post('/create-custom-variant', async (req, res) => {
     `;
 
     const mfResponse = await axios.post(
-      `https://${shop}/admin/api/2023-10/graphql.json`,
+      `https://${shop}/admin/api/2024-07/graphql.json`,
       { query: metafieldMutation },
       { headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' } }
     );
@@ -110,6 +110,42 @@ app.post('/create-custom-variant', async (req, res) => {
   } catch (err) {
     console.error('🚨 Server error:', JSON.stringify(err, null, 2));
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// —————————————————————————————————————————————
+// Admin API introspection test endpointi
+// —————————————————————————————————————————————
+app.get('/introspection-test', async (req, res) => {
+  try {
+    const introspectionTest = await axios.post(
+      `https://${shop}/admin/api/2024-07/graphql.json`,
+      {
+        query: `
+          {
+            __schema {
+              mutationType {
+                fields {
+                  name
+                }
+              }
+            }
+          }
+        `
+      },
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.dir(introspectionTest.data, { depth: null });
+    res.status(200).json(introspectionTest.data);
+  } catch (error) {
+    console.error("❌ Introspection error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
