@@ -61,7 +61,7 @@ app.post('/create-custom-variant', async (req, res) => {
     console.log("📤 Shopify mutation:", variantMutation);
 
     const variantResponse = await axios.post(
-      `https://${shop}/admin/api/2024-07/graphql.json`,
+      `https://${shop}/admin/api/2023-10/graphql.json`,
       { query: variantMutation },
       { headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' } }
     );
