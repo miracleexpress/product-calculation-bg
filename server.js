@@ -69,6 +69,7 @@ app.post('/create-custom-variant', async (req, res) => {
     const variantData = variantResponse.data?.data?.productVariantCreate;
     if (!variantData || variantData.userErrors.length) {
       console.error('❌ Variant creation error:', JSON.stringify(variantResponse.data, null, 2));
+      console.log("🧩 Full response:", JSON.stringify(variantResponse.data, null, 2));
       return res.status(500).json({ error: variantData?.userErrors || 'Variant creation failed' });
     }
 
