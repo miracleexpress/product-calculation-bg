@@ -20,7 +20,6 @@ const accessToken = process.env.SHOPIFY_ADMIN_API_KEY;
 console.log("🧪 Shopify shop:", process.env.SHOPIFY_SHOP);
 console.log("🔑 Token prefix:", process.env.SHOPIFY_ADMIN_API_KEY?.substring(0, 10));
 
-
 // Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
@@ -37,10 +36,12 @@ app.post('/create-custom-variant', async (req, res) => {
   }
 
   try {
-    // 1) Varyant oluşturma (inline args)
+    console.log("📦 Gelen productId:", productId);
+    console.log("💰 Fiyat:", price);
+
+    const productGid = productId.startsWith("gid://") ? productId : `gid://shopify/Product/${productId}`;
     const optionTitle = `${title} - ${Date.now().toString().slice(-4)}`;
     const sku = `custom-${Date.now()}`;
-    const productGid = `gid://shopify/Product/${productId}`;
 
     const variantMutation = `
       mutation {
@@ -57,7 +58,7 @@ app.post('/create-custom-variant', async (req, res) => {
         }
       }
     `;
-
+    console.log("📤 Shopify mutation:", variantMutation);
 
     const variantResponse = await axios.post(
       `https://${shop}/admin/api/2023-10/graphql.json`,
@@ -67,13 +68,12 @@ app.post('/create-custom-variant', async (req, res) => {
 
     const variantData = variantResponse.data?.data?.productVariantCreate;
     if (!variantData || variantData.userErrors.length) {
-      console.error('❌ Variant creation error:', variantResponse.data);
+      console.error('❌ Variant creation error:', JSON.stringify(variantResponse.data, null, 2));
       return res.status(500).json({ error: variantData?.userErrors || 'Variant creation failed' });
     }
 
     const variantId = variantData.productVariant.id;
 
-    // 2) Metafield güncelleme (inline args)
     const metafieldMutation = `
       mutation {
         metafieldsSet(metafields: [
@@ -102,14 +102,13 @@ app.post('/create-custom-variant', async (req, res) => {
     if (mfData && !mfData.userErrors.length) {
       isDeletable = true;
     } else {
-      console.warn('⚠️ Metafield update warnings/errors:', mfResponse.data);
+      console.warn('⚠️ Metafield update warnings/errors:', JSON.stringify(mfResponse.data, null, 2));
     }
 
-    // 3) Yanıt dön
     return res.status(200).json({ variantId, sku, isDeletable });
 
   } catch (err) {
-    console.error('🚨 Server error:', err.response?.data || err.message);
+    console.error('🚨 Server error:', JSON.stringify(err, null, 2));
     return res.status(500).json({ error: err.message });
   }
 });
