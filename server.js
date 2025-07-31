@@ -61,7 +61,7 @@ app.post('/create-custom-variant', async (req, res) => {
     console.log("📤 Shopify mutation:", variantMutation);
 
     const variantResponse = await axios.post(
-      `https://${shop}/admin/api/2024-07/graphql.json`,
+      `https://${shop}/admin/api/2023-10/graphql.json`,
       { query: variantMutation },
       {
         headers: {
@@ -98,7 +98,7 @@ app.post('/create-custom-variant', async (req, res) => {
     `;
 
     const mfResponse = await axios.post(
-      `https://${shop}/admin/api/2024-07/graphql.json`,
+      `https://${shop}/admin/api/2023-10/graphql.json`,
       { query: metafieldMutation },
       {
         headers: {
@@ -130,7 +130,7 @@ app.post('/create-custom-variant', async (req, res) => {
 app.get('/introspection-test', async (req, res) => {
   try {
     const introspectionTest = await axios.post(
-      `https://${shop}/admin/api/2024-07/graphql.json`,
+      `https://${shop}/admin/api/2023-10/graphql.json`,
       {
         query: `
           {
