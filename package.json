@@ -1,0 +1,32 @@
+{
+  "name": "product-calculation-bg",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cleanup": "node cleanup.js",
+    "cleanuptestgit": "node cleanuptest.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miracleexpress/product-calculation-bg.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/miracleexpress/product-calculation-bg/issues"
+  },
+  "homepage": "https://github.com/miracleexpress/product-calculation-bg#readme",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-cron": "^3.0.3"
+  }
+  
+}
