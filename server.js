@@ -15,9 +15,8 @@ app.use(bodyParser.json());
 
 // Shopify Admin API Config
 const shop = process.env.SHOPIFY_SHOP;                 // örn: wjais8-qu.myshopify.com
-const accessToken = process.env.SHOPIFY_ADMIN_API_KEY; // Admin API access token (write_products scope şart)
+const accessToken = process.env.SHOPIFY_ADMIN_API_KEY; // Admin API Access Token (write_products gerekli)
 
-// Basit guard
 function assertEnv() {
   if (!shop || !accessToken) {
     throw new Error("SHOPIFY_SHOP veya SHOPIFY_ADMIN_API_KEY çevre değişkeni eksik.");
@@ -25,17 +24,14 @@ function assertEnv() {
 }
 
 // -----------------------------------------
-// Health Check
+// Health
 // -----------------------------------------
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "API is running" });
 });
 
 // -----------------------------------------
-// Varyant Oluşturma (ID döner) Endpointi
-// - Ürünün option'larını dinamik okur
-// - selectedOptions'ı doğru isimlerle doldurur
-// - İlk option'a özel/custom değer yazar, kalanlara mevcut ilk değerleri koyar
+// Create custom variant (REST Admin)
 // -----------------------------------------
 app.post("/create-custom-variant", async (req, res) => {
   try {
@@ -52,11 +48,11 @@ app.post("/create-custom-variant", async (req, res) => {
   }
 
   const productGid = `gid://shopify/Product/${productId}`;
-  const optionValue = `${title} - ${Date.now().toString().slice(-4)}`;
+  const customValue = `${title} - ${Date.now().toString().slice(-4)}`;
   const sku = `custom-${Date.now()}`;
 
   try {
-    // 1) Ürünün option ad/values listesini al
+    // 1) Ürünün option'larını oku (GraphQL)
     const PRODUCT_OPTIONS_QUERY = `
       query ProductOptions($id: ID!) {
         product(id: $id) {
@@ -80,59 +76,56 @@ app.post("/create-custom-variant", async (req, res) => {
       }
     );
 
-    const prodData = prodResp?.data?.data?.product;
-    if (!prodData) {
+    const product = prodResp?.data?.data?.product;
+    if (!product) {
       console.error("Product read error:", prodResp?.data);
       return res.status(500).json({ error: "Product could not be read.", debug: prodResp?.data });
     }
 
-    const options = Array.isArray(prodData.options) ? prodData.options : [];
+    const options = Array.isArray(product.options) ? product.options : [];
 
-    // 2) selectedOptions'ı ürünün gerçek option adlarıyla kur
-    let selectedOptions = [];
+    // 2) REST Admin için option1/option2/option3 değerlerini sırayla hazırla
+    //    - 1. option'a customValue yazıyoruz
+    //    - kalan option'lara mevcut ilk değerlerini koyuyoruz
+    //    - hiç option yoksa Shopify varsayılan 'Title' kabul eder; option1'e customValue veriyoruz
+    const optionVals = [];
     if (options.length === 0) {
-      // Eski tip tek option'lı ürün kabul et: Title
-      selectedOptions = [{ name: "Title", value: optionValue }];
+      optionVals.push(customValue);
     } else {
-      // İlk option'a custom değer, kalan option'lara mevcut ilk değeri yaz
-      selectedOptions = options.map((opt, idx) => {
-        const name = opt?.name || "Title";
+      options.forEach((opt, idx) => {
         if (idx === 0) {
-          return { name, value: optionValue };
+          optionVals.push(customValue);
+        } else {
+          const firstVal =
+            (Array.isArray(opt?.values) && opt.values.length > 0 && opt.values[0]) ||
+            "Default Title";
+          optionVals.push(firstVal);
         }
-        const firstVal =
-          (Array.isArray(opt?.values) && opt.values.length > 0 && opt.values[0]) ||
-          "Default Title";
-        return { name, value: firstVal };
       });
     }
 
-    // 3) Varyant yarat
-    const CREATE_VARIANT_MUT = `
-      mutation CreateVariant($input: ProductVariantInput!) {
-        productVariantCreate(input: $input) {
-          product { id }
-          variant { id sku }
-          userErrors { field message }
-        }
-      }
-    `;
+    const [option1, option2, option3] = [
+      optionVals[0] || customValue,
+      optionVals[1],
+      optionVals[2],
+    ];
 
-    const variables = {
-      input: {
-        productId: productGid,
-        price: price.toString(),
+    // 3) REST Admin ile varyant oluştur
+    //    Not: inventory_policy: "continue" => stok 0 olsa da sat
+    const variantPayload = {
+      variant: {
+        price: Number(price),          // sayısal gönderelim
         sku,
-        selectedOptions,
-        // stok takibi yoksa stoksuz satış:
-        inventoryPolicy: "CONTINUE",
-        // stok takibi kullanıyorsanız inventoryQuantities ile miktar set edebilirsiniz.
+        option1,
+        ...(option2 ? { option2 } : {}),
+        ...(option3 ? { option3 } : {}),
+        inventory_policy: "continue",
       },
     };
 
-    const variantResponse = await axios.post(
-      `https://${shop}/admin/api/2024-07/graphql.json`,
-      { query: CREATE_VARIANT_MUT, variables },
+    const restResp = await axios.post(
+      `https://${shop}/admin/api/2024-07/products/${productId}/variants.json`,
+      variantPayload,
       {
         headers: {
           "X-Shopify-Access-Token": accessToken,
@@ -141,39 +134,30 @@ app.post("/create-custom-variant", async (req, res) => {
       }
     );
 
-    const raw = variantResponse?.data;
-    const pv = raw?.data?.productVariantCreate;
-    const errs = pv?.userErrors || [];
-
-    // Ham yanıta ulaşabilelim diye loglayalım
-    console.log("🔎 productVariantCreate raw:", JSON.stringify(raw, null, 2));
-
-    if (errs.length) {
-      // Hataları frontend'e aynen aktar ki konsolda görebilesiniz
+    const v = restResp?.data?.variant;
+    if (!v?.id) {
+      console.error("Variant create (REST) response:", restResp?.data);
       return res.status(500).json({
-        error: "productVariantCreate userErrors",
-        userErrors: errs,
-        selectedOptions,
+        error: "Variant could not be created (REST).",
+        debug: restResp?.data,
+        selectedOptions: options.map((o, i) => ({
+          name: o?.name || `Option${i + 1}`,
+          value: optionVals[i],
+        })),
       });
     }
 
-    const variantId = pv?.variant?.id;
-    if (!variantId) {
-      // Çok nadir: userErrors yok ama variant null – ham yanıtı ilet
-      return res.status(500).json({
-        error: "Variant ID could not be retrieved.",
-        debug: raw,
-        selectedOptions,
-      });
-    }
-
-    // 4) Başarı
+    // 4) Numeric ID -> GID
+    const variantId = `gid://shopify/ProductVariant/${v.id}`;
     return res.status(200).json({
-      message: "Custom variant created successfully.",
+      message: "Custom variant created successfully (REST).",
       variantId,
       sku,
-      option: optionValue,
-      selectedOptions,
+      option: customValue,
+      selectedOptions: options.map((o, i) => ({
+        name: o?.name || `Option${i + 1}`,
+        value: optionVals[i],
+      })),
     });
   } catch (err) {
     console.error("Server error:", err?.response?.data || err.message);
@@ -185,6 +169,6 @@ app.post("/create-custom-variant", async (req, res) => {
 });
 
 // -----------------------------------------
-// Sunucu Başlatma
+// Start
 // -----------------------------------------
 app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
